@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { CATEGORIES } from '../data/categories'
+import { useAuth } from '../context/useAuth'
 
 const linkBase = 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition'
 const linkIdle = 'text-stone-300 hover:bg-stone-800 hover:text-white'
@@ -8,6 +9,7 @@ const currentYear = new Date().getFullYear()
 
 export default function Sidebar({ open, onClose }) {
   const location = useLocation()
+  const { user, logout } = useAuth()
   const activeCategory = new URLSearchParams(location.search).get('category')
 
   return (
@@ -35,6 +37,12 @@ export default function Sidebar({ open, onClose }) {
           <NavLink to="/orders" className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkIdle}`}>
             <span>📦</span> Orders
           </NavLink>
+          <NavLink to="/reviews" className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkIdle}`}>
+            <span>⭐</span> Reviews
+          </NavLink>
+          <NavLink to="/instagram" className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkIdle}`}>
+            <span>📸</span> Instagram
+          </NavLink>
           <NavLink
             to="/products"
             className={({ isActive }) =>
@@ -58,7 +66,23 @@ export default function Sidebar({ open, onClose }) {
           ))}
         </nav>
 
-        <div className="border-t border-stone-800 p-4 text-xs text-stone-500">© {currentYear} Zelora Fine Jewellery</div>
+        <div className="space-y-3 border-t border-stone-800 p-4">
+          {user && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-xs text-stone-400" title={user.email}>
+                {user.email}
+              </span>
+              <button
+                type="button"
+                onClick={logout}
+                className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-stone-300 transition hover:bg-stone-800 hover:text-white"
+              >
+                Log out
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-stone-500">© {currentYear} Zelora Fine Jewellery</p>
+        </div>
       </aside>
     </>
   )
