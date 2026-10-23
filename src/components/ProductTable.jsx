@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import { CATEGORIES } from '../data/categories'
-import { formatPrice, totalStock } from '../utils/format'
+import { CATEGORIES, GENDERS } from '../data/categories'
+import { discountState, formatPrice, salePrice, totalStock } from '../utils/format'
 import StockBadge from './StockBadge'
 
 const cellInput =
@@ -85,12 +85,21 @@ function ToggleCell({ checked, label, onChange }) {
   )
 }
 
+// Background + tooltip for the Discount % cell
+const SALE_CELL = {
+  active: { className: 'bg-rose-50', title: 'Discount running now' },
+  scheduled: { className: 'bg-amber-50', title: 'Discount scheduled — starts later' },
+  ended: { className: 'bg-stone-100', title: 'Discount ended — customers pay full price' },
+}
+
 const COLUMNS = [
   { key: 'image', label: '' },
   { key: 'name', label: 'Product Name', sortable: true },
   { key: 'sku', label: 'SKU', sortable: true },
   { key: 'category', label: 'Category', sortable: true },
+  { key: 'gender', label: 'Gender', sortable: true },
   { key: 'price', label: 'Price', sortable: true, numeric: true },
+  { key: 'discount', label: 'Discount %', sortable: true, numeric: true },
   { key: 'stock', label: 'Stock', sortable: true, numeric: true },
   { key: 'value', label: 'Stock Value', sortable: true, numeric: true },
   { key: 'isNewArrival', label: 'New', sortable: true, center: true },
@@ -101,7 +110,8 @@ const COLUMNS = [
 
 function sortValue(product, key) {
   if (key === 'stock') return totalStock(product)
-  if (key === 'value') return product.price * totalStock(product)
+  if (key === 'value') return salePrice(product) * totalStock(product)
+  if (key === 'discount') return product.discount?.percent || 0
   const value = product[key]
   return typeof value === 'string' ? value.toLowerCase() : Number(value)
 }
@@ -125,14 +135,14 @@ export default function ProductTable({ products, onUpdate, onEdit, onDelete }) {
     : products
 
   const sumStock = products.reduce((sum, product) => sum + totalStock(product), 0)
-  const sumValue = products.reduce((sum, product) => sum + product.price * totalStock(product), 0)
+  const sumValue = products.reduce((sum, product) => sum + salePrice(product) * totalStock(product), 0)
 
   const th = 'border border-stone-300 bg-stone-100 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-stone-600'
   const td = 'border border-stone-200 p-0 text-sm text-stone-800'
 
   return (
     <div className="overflow-auto rounded-lg border border-stone-300 bg-white shadow-sm">
-      <table className="w-full min-w-[1100px] border-collapse">
+      <table className="w-full min-w-[1350px] border-collapse">
         <thead className="sticky top-0 z-10">
           <tr>
             <th className={`${th} w-12 text-center`}>#</th>
@@ -154,6 +164,7 @@ export default function ProductTable({ products, onUpdate, onEdit, onDelete }) {
         <tbody>
           {rows.map((product, index) => {
             const stock = totalStock(product)
+            const sale = discountState(product)
             const hasSizes = product.sizes.length > 0
             const save = (changes) => onUpdate(product._id, changes)
 
@@ -199,11 +210,46 @@ export default function ProductTable({ products, onUpdate, onEdit, onDelete }) {
                   </select>
                 </td>
                 <td className={`${td} w-32`}>
+                  <select
+                    value={product.gender || 'unisex'}
+                    onChange={(event) => save({ gender: event.target.value }).catch(() => {})}
+                    className={`${cellInput} cursor-pointer`}
+                    aria-label={`Gender for ${product.name}`}
+                  >
+                    {GENDERS.map((gender) => (
+                      <option key={gender.id} value={gender.id}>
+                        {gender.icon} {gender.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className={`${td} w-32`}>
                   <EditableCell
                     key={product.price}
                     type="number"
                     value={product.price}
                     onCommit={(price) => save({ price })}
+                    className={`text-right tabular-nums ${sale === 'active' ? 'text-stone-400 line-through' : ''}`}
+                  />
+                  {sale === 'active' && (
+                    <div className="px-3 pb-1.5 text-right text-xs font-bold tabular-nums text-rose-700">
+                      {formatPrice(salePrice(product), product.currency)}
+                    </div>
+                  )}
+                </td>
+                <td className={`${td} w-24 ${SALE_CELL[sale]?.className ?? ''}`} title={SALE_CELL[sale]?.title}>
+                  <EditableCell
+                    key={product.discount?.percent ?? 0}
+                    type="number"
+                    value={product.discount?.percent ?? 0}
+                    onCommit={(percent) =>
+                      save({
+                        discount:
+                          percent > 0
+                            ? { startsAt: null, endsAt: null, ...product.discount, percent: Math.round(percent) }
+                            : { percent: 0, startsAt: null, endsAt: null },
+                      })
+                    }
                     className="text-right tabular-nums"
                   />
                 </td>
@@ -228,7 +274,7 @@ export default function ProductTable({ products, onUpdate, onEdit, onDelete }) {
                   )}
                 </td>
                 <td className={`${td} whitespace-nowrap px-3 text-right tabular-nums text-stone-600`}>
-                  {formatPrice(product.price * stock, product.currency)}
+                  {formatPrice(salePrice(product) * stock, product.currency)}
                 </td>
                 <td className={`${td} text-center`}>
                   <ToggleCell
@@ -275,7 +321,7 @@ export default function ProductTable({ products, onUpdate, onEdit, onDelete }) {
         <tfoot>
           <tr className="bg-stone-100 font-semibold text-stone-800">
             <td className={`${td} px-2 text-center text-xs`}>Σ</td>
-            <td className={`${td} px-3 py-2`} colSpan={5}>
+            <td className={`${td} px-3 py-2`} colSpan={7}>
               Total ({products.length} {products.length === 1 ? 'product' : 'products'})
             </td>
             <td className={`${td} px-3 text-right tabular-nums`}>{sumStock}</td>

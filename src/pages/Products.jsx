@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useProducts } from '../context/useProducts'
-import { CATEGORIES, COLLECTIONS, getCategory } from '../data/categories'
+import { CATEGORIES, COLLECTIONS, GENDERS, getCategory } from '../data/categories'
+import { isDiscountActive } from '../utils/format'
 import ProductTable from '../components/ProductTable'
 import ProductFormModal from '../components/ProductFormModal'
 import { exportProductsToExcel } from '../utils/exportExcel'
@@ -9,6 +10,12 @@ import { exportProductsToExcel } from '../utils/exportExcel'
 const FILTERS = [
   { id: 'all', label: 'All products', test: () => true },
   { id: 'new', label: 'New arrivals', test: (product) => product.isNewArrival },
+  { id: 'sale', label: '🏷️ On sale now', test: (product) => isDiscountActive(product) },
+  ...GENDERS.map((gender) => ({
+    id: `gender-${gender.id}`,
+    label: `${gender.icon} ${gender.label}`,
+    test: (product) => (product.gender || 'unisex') === gender.id,
+  })),
   ...COLLECTIONS.map((collection) => ({
     id: collection.id,
     label: collection.label,

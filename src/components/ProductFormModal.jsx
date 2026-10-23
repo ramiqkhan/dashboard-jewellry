@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { CATEGORIES, COLLECTIONS } from '../data/categories'
+import { CATEGORIES, COLLECTIONS, GENDERS } from '../data/categories'
+import { discountState, formatPrice } from '../utils/format'
 
 // Mirrors backend/middleware/upload.js
 const MAX_IMAGES = 10
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+
+const MAX_DISCOUNT = 90 // mirrors backend/models/Product.js
+
+// Date inputs work in the admin's local time: start = 00:00 of that day, end = 23:59:59 of that day
+function toDateInput(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+const startOfDay = (day) => (day ? new Date(`${day}T00:00:00`).toISOString() : null)
+const endOfDay = (day) => (day ? new Date(`${day}T23:59:59.999`).toISOString() : null)
 
 const DEFAULTS = {
   name: '',
@@ -14,7 +27,11 @@ const DEFAULTS = {
   collections: [],
   isNewArrival: false,
   isActive: true,
+  gender: 'unisex',
   price: '',
+  discountPercent: '',
+  discountStart: '',
+  discountEnd: '',
   currency: 'PKR',
   priceNote: 'Taxes & Insured Express Shipping Included',
   description: '',
@@ -35,7 +52,11 @@ function toForm(product, defaultCategory) {
     collections: product.collections,
     isNewArrival: product.isNewArrival,
     isActive: product.isActive,
+    gender: product.gender || 'unisex',
     price: String(product.price),
+    discountPercent: product.discount?.percent ? String(product.discount.percent) : '',
+    discountStart: toDateInput(product.discount?.startsAt),
+    discountEnd: toDateInput(product.discount?.endsAt),
     currency: product.currency,
     priceNote: product.priceNote,
     description: product.description,
@@ -66,6 +87,36 @@ function Section({ title, children }) {
       <legend className="mb-1 text-sm font-semibold uppercase tracking-wider text-stone-500">{title}</legend>
       {children}
     </fieldset>
+  )
+}
+
+const DISCOUNT_STATES = {
+  active: { text: 'Running now', className: 'bg-rose-600 text-white' },
+  scheduled: { text: 'Scheduled — starts later', className: 'bg-amber-100 text-amber-800' },
+  ended: { text: 'Ended — customers pay full price', className: 'bg-stone-200 text-stone-600' },
+}
+
+// Live "before → after" price so you can see exactly what customers will pay
+function DiscountPreview({ form }) {
+  const price = Number(form.price)
+  const percent = Number(form.discountPercent)
+  if (!(price > 0) || !(percent > 0) || percent > MAX_DISCOUNT) return null
+
+  const state = discountState({
+    discount: { percent, startsAt: startOfDay(form.discountStart), endsAt: endOfDay(form.discountEnd) },
+  })
+  const discounted = Math.round(price * (1 - percent / 100))
+  const currency = form.currency.trim().toUpperCase() || 'PKR'
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+      <span className="text-stone-400 line-through">{formatPrice(price, currency)}</span>
+      <span className="text-lg font-bold text-rose-700">{formatPrice(discounted, currency)}</span>
+      <span className="text-stone-500">customers save {formatPrice(price - discounted, currency)}</span>
+      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${DISCOUNT_STATES[state].className}`}>
+        {DISCOUNT_STATES[state].text}
+      </span>
+    </div>
   )
 }
 
@@ -149,6 +200,13 @@ export default function ProductFormModal({ product, defaultCategory, onSave, onC
     if (sizes.some((size) => !Number.isInteger(size.stock) || size.stock < 0)) {
       return setError('Each size stock must be a whole number (0 or more).')
     }
+    const discountPercent = form.discountPercent === '' ? 0 : Number(form.discountPercent)
+    if (!(discountPercent >= 0 && discountPercent <= MAX_DISCOUNT)) {
+      return setError(`Discount must be between 0 and ${MAX_DISCOUNT}%.`)
+    }
+    if (form.discountStart && form.discountEnd && form.discountEnd < form.discountStart) {
+      return setError('Discount end date must be on or after the start date.')
+    }
 
     // multipart/form-data: arrays go as JSON strings (the backend parses them), images as files
     const body = new FormData()
@@ -159,6 +217,15 @@ export default function ProductFormModal({ product, defaultCategory, onSave, onC
     body.append('stock', String(sizes.length ? 0 : stock))
     body.append('isNewArrival', String(form.isNewArrival))
     body.append('isActive', String(form.isActive))
+    body.append('gender', form.gender)
+    body.append(
+      'discount',
+      JSON.stringify(
+        discountPercent > 0
+          ? { percent: discountPercent, startsAt: startOfDay(form.discountStart), endsAt: endOfDay(form.discountEnd) }
+          : { percent: 0, startsAt: null, endsAt: null },
+      ),
+    )
     body.append('collections', JSON.stringify(form.collections))
     body.append('sizes', JSON.stringify(sizes))
     body.append(
@@ -217,6 +284,28 @@ export default function ProductFormModal({ product, defaultCategory, onSave, onC
                   ))}
                 </select>
               </Field>
+              <div className="sm:col-span-2">
+                <span className="mb-1 block text-sm font-medium text-stone-700">Gender *</span>
+                <div className="inline-flex rounded-lg border border-stone-300 p-1" role="radiogroup" aria-label="Gender">
+                  {GENDERS.map((gender) => (
+                    <button
+                      key={gender.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={form.gender === gender.id}
+                      onClick={() => set('gender', gender.id)}
+                      className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                        form.gender === gender.id ? 'bg-amber-600 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-100'
+                      }`}
+                    >
+                      {gender.icon} {gender.label}
+                    </button>
+                  ))}
+                </div>
+                <span className="mt-1 block text-xs text-stone-500">
+                  Unisex products show under both women&apos;s and men&apos;s in the store.
+                </span>
+              </div>
               <Field label="Brand">
                 <input className={inputClass} {...bind('brand')} />
               </Field>
@@ -269,6 +358,30 @@ export default function ProductFormModal({ product, defaultCategory, onSave, onC
               <Field label="Price note" className="sm:col-span-3">
                 <input className={inputClass} {...bind('priceNote')} />
               </Field>
+            </div>
+
+            <div className="rounded-xl border border-dashed border-rose-300 bg-rose-50/40 p-4">
+              <p className="mb-3 text-sm font-semibold text-rose-700">🏷️ Discount (optional)</p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Discount %" hint={`0–${MAX_DISCOUNT}. Leave empty for no discount.`}>
+                  <input
+                    type="number"
+                    min="0"
+                    max={MAX_DISCOUNT}
+                    step="1"
+                    className={inputClass}
+                    {...bind('discountPercent')}
+                    placeholder="e.g. 20"
+                  />
+                </Field>
+                <Field label="Starts on" hint="Empty = starts now">
+                  <input type="date" className={inputClass} {...bind('discountStart')} />
+                </Field>
+                <Field label="Ends on" hint="Empty = no end date">
+                  <input type="date" min={form.discountStart || undefined} className={inputClass} {...bind('discountEnd')} />
+                </Field>
+              </div>
+              <DiscountPreview form={form} />
             </div>
           </Section>
 

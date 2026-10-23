@@ -1,6 +1,6 @@
-import { getCategory, getCollection } from '../data/categories'
+import { getCategory, getCollection, getGender } from '../data/categories'
 import { getOrderStatus, getPaymentMethod, getPaymentStatus } from '../data/orders'
-import { formatDate, totalStock } from './format'
+import { formatDate, salePrice, totalStock } from './format'
 
 // Writes rows (array of plain objects) to a real .xlsx file. The xlsx library is
 // loaded on demand so it doesn't bloat the initial page load.
@@ -22,11 +22,16 @@ export function exportProductsToExcel(products, fileName = 'products.xlsx') {
       'Product Name': product.name,
       Category: getCategory(product.category)?.label ?? product.category,
       Collections: product.collections.map((id) => getCollection(id)?.label ?? id).join(', '),
+      Gender: getGender(product.gender).label,
       Price: product.price,
+      'Discount %': product.discount?.percent || 0,
+      'Discount Starts': product.discount?.startsAt ? formatDate(product.discount.startsAt) : '',
+      'Discount Ends': product.discount?.endsAt ? formatDate(product.discount.endsAt) : '',
+      'Sale Price': salePrice(product),
       Currency: product.currency,
       Stock: stock,
       Sizes: product.sizes.map((size) => `${size.label} (${size.stock})`).join(', '),
-      'Stock Value': product.price * stock,
+      'Stock Value': salePrice(product) * stock,
       'New Arrival': product.isNewArrival ? 'Yes' : 'No',
       Active: product.isActive ? 'Yes' : 'No',
       Badge: product.badge,
@@ -34,7 +39,12 @@ export function exportProductsToExcel(products, fileName = 'products.xlsx') {
       Image: product.images[0]?.url ?? '',
     }
   })
-  return downloadSheet(rows, [5, 14, 34, 12, 24, 10, 8, 7, 34, 13, 11, 7, 18, 24, 50], 'Products', fileName)
+  return downloadSheet(
+    rows,
+    [5, 14, 34, 12, 24, 9, 10, 10, 18, 18, 10, 8, 7, 34, 13, 11, 7, 18, 24, 50],
+    'Products',
+    fileName,
+  )
 }
 
 export function exportOrdersToExcel(orders, fileName = 'orders.xlsx') {

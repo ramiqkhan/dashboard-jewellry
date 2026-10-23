@@ -20,3 +20,14 @@ export function getCategory(id) {
 export function getCollection(id) {
   return COLLECTIONS.find((collection) => collection.id === id)
 }
+
+// Must match GENDERS in backend/models/Product.js. Unisex shows under both women's and men's on the store.
+export const GENDERS = [
+  { id: 'women', label: 'Female', icon: '👩' },
+  { id: 'men', label: 'Male', icon: '👨' },
+  { id: 'unisex', label: 'Unisex', icon: '🧑' },
+]
+
+export function getGender(id) {
+  return GENDERS.find((gender) => gender.id === id) ?? GENDERS[2]
+}
