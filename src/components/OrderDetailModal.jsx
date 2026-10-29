@@ -108,6 +108,14 @@ export default function OrderDetailModal({ order, onUpdate, onClose }) {
                   {order.customer.phone}
                 </a>
               </p>
+              {order.customer.alternativePhone && (
+                <p>
+                  <a href={`tel:${order.customer.alternativePhone}`} className="text-amber-700 hover:underline">
+                    {order.customer.alternativePhone}
+                  </a>{' '}
+                  <span className="text-xs text-stone-400">(alternative)</span>
+                </p>
+              )}
             </Card>
             <Card title="Ship to">
               <p>{address.line1}</p>

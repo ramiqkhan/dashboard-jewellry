@@ -90,7 +90,14 @@ export default function OrdersTable({ orders, startIndex, onOpen, onUpdate }) {
                   <div className="font-medium">{order.customer.name}</div>
                   <div className="text-xs text-stone-500">{order.customer.email}</div>
                 </td>
-                <td className={`${td} whitespace-nowrap text-stone-600`}>{order.customer.phone}</td>
+                <td className={`${td} whitespace-nowrap text-stone-600`}>
+                  <div>{order.customer.phone}</div>
+                  {order.customer.alternativePhone && (
+                    <div className="text-xs text-stone-500" title="Alternative number">
+                      Alt: {order.customer.alternativePhone}
+                    </div>
+                  )}
+                </td>
                 <td className={`${td} text-stone-600`}>{order.shippingAddress.city}</td>
                 <td className={`${td} text-right tabular-nums`}>{quantity}</td>
                 <td className={`${td} whitespace-nowrap text-right font-semibold tabular-nums`}>

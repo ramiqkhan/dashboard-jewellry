@@ -58,6 +58,7 @@ export function exportOrdersToExcel(orders, fileName = 'orders.xlsx') {
       Customer: order.customer.name,
       Email: order.customer.email,
       Phone: order.customer.phone,
+      'Alternative Phone': order.customer.alternativePhone || '',
       Address: [address.line1, address.line2].filter(Boolean).join(', '),
       City: address.city,
       Province: address.province,
