@@ -40,6 +40,9 @@ export default function Sidebar({ open, onClose }) {
           <NavLink to="/messages" className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkIdle}`}>
             <span>✉️</span> Messages
           </NavLink>
+          <NavLink to="/deals" className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkIdle}`}>
+            <span>🏷️</span> Deals
+          </NavLink>
           <NavLink to="/reviews" className={({ isActive }) => `${linkBase} ${isActive ? linkActive : linkIdle}`}>
             <span>⭐</span> Reviews
           </NavLink>

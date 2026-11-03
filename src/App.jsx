@@ -10,6 +10,7 @@ import Orders from './pages/Orders'
 import Reviews from './pages/Reviews'
 import Instagram from './pages/Instagram'
 import Messages from './pages/Messages'
+import Deals from './pages/Deals'
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
             <Route path="/reviews" element={<Reviews />} />
             <Route path="/instagram" element={<Instagram />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/deals" element={<Deals />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
